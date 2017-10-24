@@ -2,6 +2,17 @@ import React, { Component } from "react";
 import App from "../components/App";
 import serialize from "form-serialize";
 
+function findUserById(userId, allUsers) {
+  let userIndex = 0;
+  for (var i = 0; i < allUsers.length; i++) {
+    if (Number(allUsers[i].id) === Number(userId)) {
+      userIndex = i;
+    }
+  }
+  let thisUser = allUsers[userIndex];
+  return thisUser;
+}
+
 class AppContainer extends Component {
   constructor() {
     super();
@@ -10,7 +21,12 @@ class AppContainer extends Component {
     this.state = {
       users: [],
       isFetching: false,
-      error: false
+      error: false,
+      editAbleUser: false,
+      first_name: "",
+      last_name: "",
+      avatar: "",
+      id: 0
     };
   }
 
@@ -31,6 +47,12 @@ class AppContainer extends Component {
         });
       });
   }
+
+  onChangeInput = e => {
+    this.setState({
+      [e.target.name]: e.target.value
+    });
+  };
 
   onAddUser = e => {
     e.preventDefault();
@@ -56,15 +78,14 @@ class AppContainer extends Component {
         return response.json();
       })
       .then(json => {
-        this.setState(
-          {
-            isFetching: false,
-            users: [...this.state.users, json]
-          },
-          () => {
-            form.reset();
-          }
-        );
+        this.setState({
+          isFetching: false,
+          users: [...this.state.users, json],
+          first_name: "",
+          last_name: "",
+          avatar: "",
+          id: false
+        });
       })
       .catch(error => {
         console.log(error);
@@ -74,8 +95,117 @@ class AppContainer extends Component {
         });
       });
   };
+
+  onDeleteUser = e => {
+    e.preventDefault();
+    const userId = e.target.value;
+    //options
+    const options = {
+      method: "DELETE"
+    };
+    //Before fetch set fetch to true
+    this.setState({ isFetching: true });
+
+    fetch(`https://reqres.in/api/users/${userId}`, options)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`${response.status} ${response.statusText}`);
+        }
+        return true;
+      })
+      .then(() => {
+        let allUsers = this.state.users;
+        let thisUser = findUserById(userId, this.state.users);
+        allUsers.splice(allUsers.indexOf(thisUser), 1);
+        this.setState({
+          users: allUsers,
+          isFetching: false
+        });
+      })
+      .catch(error => {
+        console.log(error);
+        this.setState({
+          isFetching: false,
+          error
+        });
+      });
+  };
+
+  onEditUser = e => {
+    e.preventDefault();
+    let userId = e.target.value;
+    let thisUser = findUserById(userId, this.state.users);
+    this.setState({
+      editAbleUser: true,
+      first_name: thisUser.first_name,
+      last_name: thisUser.last_name,
+      avatar: thisUser.avatar,
+      id: thisUser.id
+    });
+  };
+
+  onSaveEditUser = e => {
+    e.preventDefault();
+    const form = e.target;
+    const body = serialize(form, { hash: true });
+    const headers = new Headers();
+    headers.append("Content-Type", "application/json");
+    //options
+    const options = {
+      headers,
+      method: "PUT",
+      body: JSON.stringify(body)
+    };
+    //Before fetch set fetch to true
+    this.setState({ isFetching: true });
+
+    fetch(`https://reqres.in/api/users/${body.id}`, options)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`${response.status} ${response.statusText}`);
+        }
+        return true;
+      })
+      .then(() => {
+        let allUsers = this.state.users;
+        for (var i = 0; i < allUsers.length; i++) {
+          if (Number(allUsers[i].id) === Number(body.id)) {
+            allUsers[i].first_name = body.first_name;
+            allUsers[i].last_name = body.last_name;
+            allUsers[i].avatar = body.avatar;
+            allUsers[i].id = body.id;
+          }
+        }
+        this.setState({
+          users: allUsers,
+          isFetching: false,
+          editAbleUser: false,
+          first_name: "",
+          last_name: "",
+          avatar: "",
+          id: false
+        });
+      })
+      .catch(error => {
+        console.log(error);
+        this.setState({
+          isFetching: false,
+          error
+        });
+      });
+  };
+
   render() {
-    return <App onAddUser={this.onAddUser} {...this.state} />;
+    return (
+      <App
+        onAddUser={this.onAddUser}
+        onDeleteUser={this.onDeleteUser}
+        onEditUser={this.onEditUser}
+        onChange={this.onChangeInput}
+        onSaveEditUser={this.onSaveEditUser}
+        {...this.state}
+      />
+    );
   }
 }
 
